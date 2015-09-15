@@ -31,7 +31,7 @@ module Data.LVar.SLMap
          -- * The type and its basic operations
          IMap,
          newEmptyMap, newMap, newFromList,
-         insert,
+         insert,insertIfAbsent,
          getKey, waitSize, waitValue,
          modify,
 
@@ -237,6 +237,18 @@ insert !key !elm (IMap (WrapLVar lv)) = WrapPar$ putLV lv putter
           case putRes of
             Added _ -> return $ Just (key, elm)
             Found _ -> throw$ ConflictingPutExn$ "Multiple puts to one entry in an IMap!"
+
+-- | Put a single entry into the map if the key is not present,
+--   otherwise the insertion request is silently ignored.
+-- (WHNF) Strict in the key and value.
+insertIfAbsent :: (Ord k, Eq v, HasPut e) =>
+          k -> v -> IMap k s v -> Par e s ()
+insertIfAbsent !key !elm (IMap (WrapLVar lv)) = WrapPar$ putLV lv putter
+  where putter slm = do
+          putRes <- SLM.putIfAbsent slm key $ return elm
+          case putRes of
+            Added _ -> return $ Just (key, elm)
+            Found _ -> return Nothing
 
 -- | `IMap`s containing other LVars have some additional capabilities compared to
 -- those containing regular Haskell data.  In particular, it is possible to modify
